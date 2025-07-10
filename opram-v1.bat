@@ -1,46 +1,46 @@
-lear-Host
+@echo off
+setlocal enabledelayedexpansion
 
-# Get physical RAM in MB
-$RAMBytes = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
-$RAM_MB = [math]::Round($RAMBytes / 1MB)
+for /f "tokens=3 delims= " %%a in ('reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v SystemRoot') do (
+    set "SystemRootPath=%%a"
+)
+set "SystemDrive=%SystemRootPath:~0,2%"
+set "PageFile=%SystemDrive%\\pagefile.sys"
 
-# Option calculations
-$Opt1 = $RAM_MB
-$Opt2 = $RAM_MB + 8192
-$Opt3 = $RAM_MB + 16384
-$Opt4 = $RAM_MB + 32768
-$Opt5 = $RAM_MB * 2
+for /f "tokens=2 delims==" %%A in ('"wmic computersystem get totalphysicalmemory /value"') do (
+    set /a RAM_MB=%%A / 1048576
+)
 
-Write-Host "Physical RAM detected: $RAM_MB MB"
-Write-Host ""
-Write-Host "Choose virtual RAM size:"
-Write-Host "1 - $Opt1 MB"
-Write-Host "2 - $Opt2 MB"
-Write-Host "3 - $Opt3 MB"
-Write-Host "4 - $Opt4 MB"
-Write-Host "5 - $Opt5 MB"
-Write-Host "6 - Enter manually"
+set /a Opt1=%RAM_MB%
+set /a Opt2=%RAM_MB% + 8192
+set /a Opt3=%RAM_MB% + 16384
+set /a Opt4=%RAM_MB% + 32768
+set /a Opt5=%RAM_MB% * 2
 
-do { 
-$choice = Read-Host "Select option (1-6)"
-} while ($choice -notin 1..6)
+echo RAM: %RAM_MB% MB
+echo.
+echo 1 - %Opt1% MB
+echo 2 - %Opt2% MB
+echo 3 - %Opt3% MB
+echo 4 - %Opt4% MB
+echo 5 - %Opt5% MB
+echo 6 - Inserisci manualmente
 
-if ($choice -eq 6) { 
-do { 
-$CustomSize = Read-Host "Enter size in MB" 
-} while (-not [int]::TryParse($CustomSize, [ref]0))
-} else { 
-$CustomSize = switch ($choice) { 
-1 { $Opt1 } 
-2 { $Opt2 } 
-3 { $Opt3 } 
-4 { $Opt4 } 
-5 { $Opt5 } 
-}
-}
+set /p choice=Scegli un'opzione (1-6): 
 
-Write-Host ""
-Write-Host "You have chosen the Paging file size: $CustomSize MB"
-Write-Host "To apply this change, run the script as administrator and modify the paging file."
-Write-Host "This script currently does not change anything; it only serves as an interface."
-Pause
+if "%choice%"=="1" set CustomSize=%Opt1%
+if "%choice%"=="2" set CustomSize=%Opt2%
+if "%choice%"=="3" set CustomSize=%Opt3%
+if "%choice%"=="4" set CustomSize=%Opt4%
+if "%choice%"=="5" set CustomSize=%Opt5%
+if "%choice%"=="6" set /p CustomSize=Inserisci la dimensione in MB: 
+
+wmic computersystem where name="%computername%" set AutomaticManagedPagefile=False
+wmic pagefileset where name="%PageFile%" set InitialSize=%CustomSize%,MaximumSize=%CustomSize%
+
+echo.
+echo Le modifiche sono state applicate.
+echo Riavvia il PC per renderle effettive.
+
+pause
+endlocal

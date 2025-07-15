@@ -1,0 +1,143 @@
+@echo off
+chcp 65001 >nul
+title OPRAM - RAM BOOST TOOL 2025
+mode con: cols=120 lines=40
+color 0F
+cls
+
+:: Verifica privilegi amministrativi
+net session >nul 2>&1
+if %errorlevel% NEQ 0 (
+    echo.
+    echo                                      Devi eseguire questo script come amministratore!
+    pause
+    exit /b
+)
+
+:: Mostra il logo
+:ShowLogo
+cls
+echo.
+echo                          ██████╗ ██████╗ ██████╗  █████╗ ███╗   ███╗
+echo                          ██╔═══██╗██╔══██╗██╔══██╗██╔══██╗████╗ ████║
+echo                          ██║   ██║██████╔╝██████╔╝███████║██╔████╔██║
+echo                          ██║   ██║██╔═══╝ ██╔══██╗██╔══██║██║╚██╔╝██║
+echo                          ╚██████╔╝██║     ██║  ██║██║  ██║██║ ╚═╝ ██║
+echo                           ╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝
+echo.
+echo                     ╔══════════════════════════════════════════════════════╗
+echo                     ║             OPRAM - RAM BOOST TOOL 2025              ║
+echo                     ╚══════════════════════════════════════════════════════╝
+echo.
+goto :MENU
+
+:MENU
+echo                     ╔══════════════════════════════════════════════════════╗
+echo                     ║ [1] +32 GB Virtual RAM (Gaming)                      ║
+echo                     ║ [2] +16 GB Virtual RAM (Balanced)                    ║
+echo                     ║ [3] Custom Virtual RAM                               ║
+echo                     ║ [4] Enable High Performance Power Plan               ║
+echo                     ║ [5] Exit                                             ║
+echo                     ╚══════════════════════════════════════════════════════╝
+echo.
+
+set /p choice=                                Seleziona un'opzione [1-5]: 
+if "%choice%"=="1" goto ram32
+if "%choice%"=="2" goto ram16
+if "%choice%"=="3" goto customram
+if "%choice%"=="4" goto boost
+if "%choice%"=="5" goto end
+
+echo.
+echo                     ❌ Opzione non valida. Riprova.
+pause >nul
+goto MENU
+
+:ram32
+call :SetVirtualRAM 32768
+goto pausemenu
+
+:ram16
+call :SetVirtualRAM 16384
+goto pausemenu
+
+:customram
+cls
+echo.
+echo                     ╔══════════════════════════════════════════════════════╗
+echo                     ║               Inserisci dimensione RAM              ║
+echo                     ╚══════════════════════════════════════════════════════╝
+set /p custom=                           Inserisci la dimensione RAM in MB: 
+echo %custom% | findstr /r "^[0-9][0-9]*$" >nul
+if errorlevel 1 (
+    echo.
+    echo                     ❌ Input non valido. Inserisci solo numeri interi.
+    pause
+    goto MENU
+)
+call :SetVirtualRAM %custom%
+goto pausemenu
+
+:boost
+cls
+call :EnableHighPerf
+goto pausemenu
+
+:SetVirtualRAM
+setlocal
+set sizeMB=%1
+echo.
+echo                     ╔══════════════════════════════════════════════════════╗
+echo                     ║      Impostazione Virtual RAM a %sizeMB% MB                  ║
+echo                     ╚══════════════════════════════════════════════════════╝
+for /f "tokens=2 delims==" %%D in ('wmic os get SystemDrive /value ^| find "="') do set sysDrive=%%D
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v PagingFiles /t REG_MULTI_SZ /d "%sysDrive%\pagefile.sys %sizeMB% %sizeMB%" /f >nul
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v ExistingPageFiles /t REG_MULTI_SZ /d "%sysDrive%\pagefile.sys" /f >nul
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v TempPageFile /t REG_DWORD /d 0 /f >nul
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v SystemManagedSize /t REG_DWORD /d 0 /f >nul
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v AutomaticManagedPagefile /t REG_DWORD /d 0 /f >nul
+echo.
+echo                     ✓ Virtual RAM impostata con successo!
+echo                     Riavvia il PC per applicare le modifiche.
+endlocal
+goto :eof
+
+:EnableHighPerf
+for /f "tokens=1,2 delims=:" %%G in ('powercfg /L ^| findstr /I "prestazioni elevate"') do (
+    set guid=%%H
+)
+if defined guid (
+    set guid=%guid: =%
+    powercfg /S %guid%
+    echo.
+    echo                     ✓ Modalità High Performance attivata!
+) else (
+    echo.
+    echo                     ❌ Profilo High Performance non trovato.
+)
+goto :eof
+
+:pausemenu
+echo.
+echo                     ╔══════════════════════════════════════════════════════╗
+echo                     ║   Premi 1 per riavviare il sistema ora              ║
+echo                     ║   Premi 0 per uscire senza riavvio                  ║
+echo                     ╚══════════════════════════════════════════════════════╝
+choice /c 01 /n /m "  "
+if errorlevel 2 goto end
+if errorlevel 1 (
+    echo.
+    echo                     Riavvio in corso...
+    shutdown /r /t 5
+)
+goto end
+
+:end
+cls
+echo.
+echo                     ╔══════════════════════════════════════════════════════╗
+echo                     ║        Grazie per aver usato OPRAM 💙                ║
+echo                     ╚══════════════════════════════════════════════════════╝
+timeout /t 2 >nul
+exit /b
+
